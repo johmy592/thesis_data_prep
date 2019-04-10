@@ -107,7 +107,7 @@ def aggregate_all(files, location):
         intermediate += replace_div_chars(texts_dir+filename)
 
     all_lines = extract_text(intermediate)
-    print('Tokenizing ', len(all_lines),'lines.')
+    print('Processing ', len(all_lines),'lines in nlp pipeline.')
     print('This might take several minutes\n')
     docs = make_tokenized_doc_list(all_lines)
     print('Writing to file\n')

@@ -2,6 +2,10 @@ import sys
 
 
 def concatenate_and_write(v1,v2,save_location):
+    '''
+    Write the combined content of two lists of terms to file.
+    No duplicate terms are written.
+    '''
     concatenated_vocabulary = list(set(v1+v2))
     concatenated_vocabulary.sort()
     print('Writing vocabulary of total ',len(concatenated_vocabulary),' terms')
@@ -16,7 +20,7 @@ if __name__ == "__main__":
         print("Usage: ")
         print("python3 concatenate_vocab.py <vocab1_path> <vocab2_path> <write_path>")
         sys.exit()
-    
+
     vocab_1 = open(sys.argv[1],'r')
     vocab_2 = open(sys.argv[2],'r')
     save_location = sys.argv[3]

@@ -11,8 +11,10 @@ import sys
 OVERLY_GENERAL = ['artifact']
 
 LEVELS = 5
-NUM_QUERIES = 300
+NUM_QUERIES = 2000
 
+# The number of pairs in the small domain training data
+MIN_NUM_PAIRS = 8576
 
 def check_synsets(terms):
     '''
@@ -33,7 +35,7 @@ def select_single_synset(terms_with_synsets):
             if '.n' in s.name():
                 synset_dict[t] = s
                 break
-    return synset_dict    
+    return synset_dict
 
 
 def select_all_synsets(terms_with_synsets):
@@ -57,7 +59,7 @@ def make_hypernym_dict2(synset_dict, num_levels=2):
     '''
     Returns a dictionary of terms associated with
     its hypernym synsets, traverses num_levels levels
-    in the wordnet hierarchy. 
+    in the wordnet hierarchy.
     Assumes each term is associated with a list of Synsets,
     as opposed to a single one.
     '''
@@ -91,7 +93,7 @@ def make_hypernym_dict(synset_dict,num_levels=2):
     for term in synset_dict:
         cur_level = 0
         next_hypernyms = synset_dict[term].hypernyms()
-        
+
         hypernym_dict[term] = next_hypernyms
         cur_level += 1
         while cur_level < num_levels:
@@ -101,21 +103,22 @@ def make_hypernym_dict(synset_dict,num_levels=2):
             hypernym_dict[term] += _next_hypernyms
             next_hypernyms = _next_hypernyms
             cur_level += 1
-            
+
     return hypernym_dict
 
 
 def keep_vocab_hypernyms(hypernym_dict, full_vocab_list):
     '''
-    Removes hypernyms that do not exist in the
-    vocabulary
+    Removes hypernyms that do not exist in the vocabulary.
+    The input is assumed to contain the synsets of the hypernyms.
+    The resulting dictionary contains the name strings of the hypernyms.
     '''
     processed_terms = 0
     new_dict = {}
     for term in hypernym_dict:
         hypernyms_to_keep = []
         for h in hypernym_dict[term]:
-            hypernym_text = h.name().split('.n')[0].replace('_',' ') 
+            hypernym_text = h.name().split('.n')[0].replace('_',' ')
             if (hypernym_text in full_vocab_list) and not ( hypernym_text in OVERLY_GENERAL):
                 hypernyms_to_keep += [hypernym_text]
         if hypernyms_to_keep:
@@ -127,6 +130,25 @@ def keep_vocab_hypernyms(hypernym_dict, full_vocab_list):
     return new_dict
 
 
+def _custom_cmp(item1, item2):
+    if item1[1] < item2[1]:
+        return 1
+    elif item1[1] > item2[1]:
+        return -1
+    else:
+        return 0
+
+
+def size_based_sample(hypernym_dict, num_samples=100):
+    '''
+    Returns sample of num_samples terms selected based
+    on the number of found hypernyms
+    '''
+    all_terms_with_freq = [(t,len(hypernym_dict[t])) for t in hypernym_dict]
+    sorted_terms = sorted(all_terms_with_freq, key=_custom_cmp)
+    return sorted_terms
+
+
 def sample_terms(hypernym_dict, num_samples=100):
     '''
     Returns a random sample of num_samples terms
@@ -135,12 +157,18 @@ def sample_terms(hypernym_dict, num_samples=100):
     sample_size = min(num_samples,len(all_terms))
     if(sample_size != num_samples):
         print("WARNING: Only found ",sample_size, "terms with hypernyms")
-    return random.sample(all_terms, sample_size)
-
+        return random.sample(all_terms, sample_size)
+    # Make sure the number of training pairs is similar to smaller domain
+    curr_sample = random.sample(all_terms, sample_size)
+    num_pairs = sum([len(hypernym_dict[q]) for q in curr_sample])
+    while (num_pairs < MIN_NUM_PAIRS):
+        curr_sample = list(set(curr_sample + random.sample(all_terms, 20)))
+        num_pairs = sum([len(list(set(hypernym_dict[q]))) for q in curr_sample])
+    return curr_sample
 
 def write_training_data(queries, hypernym_dict, query_file, gold_file):
     '''
-    Writes a query file and a gold file in accordance with the 
+    Writes a query file and a gold file in accordance with the
     SemEval-2018 Task 9 standard
     '''
     qf = open(query_file,'w+')
@@ -162,7 +190,7 @@ def write_training_data(queries, hypernym_dict, query_file, gold_file):
 
 def sanity_check(hypernym_dict, full_vocab_list):
     '''
-    Performs a sanity check to make sure that no 
+    Performs a sanity check to make sure that no
     out-of-vocabulary terms remain
     '''
     for term in hypernym_dict:
@@ -181,10 +209,10 @@ def print_help():
     print("python3 create_training_data.py <terms_vocab_path> <full_vocab_path> <save_dir>")
 
 if __name__ == "__main__":
-   
+
     if(not len(sys.argv) == 4):
         print_help()
-        sys.exit() 
+        sys.exit()
     terms_vocab = sys.argv[1]
     full_vocab = sys.argv[2]
     save_folder = sys.argv[3]
@@ -195,7 +223,7 @@ if __name__ == "__main__":
     terms_list = [w.strip('\n') for w in tf]
     tf.close()
     print("Read ", len(terms_list), " terms from vocabulary")
-    
+
     terms_with_synsets = check_synsets(terms_list)
     print("Found ", len(terms_with_synsets), " terms with wordnet synsets")
 
@@ -209,7 +237,7 @@ if __name__ == "__main__":
     print("Removing oov words based on vocab of size ", len(full_vocab_list))
 
     ready_hypernyms = keep_vocab_hypernyms(hypernym_dict, full_vocab_list)
-    
+
     print("Selecting random sample of ", NUM_QUERIES, " queries")
     queries = sample_terms(ready_hypernyms, NUM_QUERIES)
 

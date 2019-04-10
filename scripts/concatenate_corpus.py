@@ -2,6 +2,10 @@ import sys
 
 
 def concatenate_files(filename1, filename2, write_filename):
+    '''
+    Concatenates two textfiles and write the full content
+    to a new file. Writen to work for big files.
+    '''
     f1 = open(filename1,'r')
     f2 = open(filename2,'r')
     wf = open(write_filename,'w+')
@@ -36,4 +40,4 @@ if __name__ == "__main__":
     second_corpus = sys.argv[2]
     save_file = sys.argv[3]
 
-    concatenate_files(first_corpus, second_corpus, save_file) 
+    concatenate_files(first_corpus, second_corpus, save_file)
